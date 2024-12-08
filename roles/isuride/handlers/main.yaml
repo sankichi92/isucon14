@@ -3,3 +3,9 @@
     name: isuride-rust.service
     daemon_reload: true
     state: restarted
+
+- name: Restart isuride-matcher
+  ansible.builtin.systemd_service:
+    name: isuride-matcher.service
+    daemon_reload: true
+    state: restarted

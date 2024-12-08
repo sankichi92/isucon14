@@ -33,6 +33,12 @@
     daemon_reload: true
     state: stopped
 
+- name: Copy sql
+  ansible.builtin.copy:
+    src: sql
+    dest: /home/isucon/webapp
+  notify: Restart isuride
+
 - name: Start isuride
   ansible.builtin.systemd_service:
     name: isuride-rust.service
@@ -40,7 +46,18 @@
     daemon_reload: true
     state: started
 
-- name: Copy sql
+- name: Copy isuride-matcher.service
   ansible.builtin.copy:
-    src: sql
-    dest: /home/isucon/webapp
+    src: isuride-matcher.service
+    dest: /etc/systemd/system/isuride-matcher.service
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart isuride-matcher
+
+- name: Start isuride-matcher
+  ansible.builtin.systemd_service:
+    name: isuride-matcher.service
+    enabled: true
+    daemon_reload: true
+    state: started
