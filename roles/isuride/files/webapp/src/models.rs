@@ -22,6 +22,22 @@ pub struct ChairLocation {
     pub total_distance: i32,
 }
 
+#[derive(Debug, sqlx::FromRow)]
+pub struct ChairAndLocation {
+    pub owner_id: String,
+    pub name: String,
+    pub access_token: String,
+    pub model: String,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub id: String,
+    pub chair_id: String,
+    pub latitude: i32,
+    pub longitude: i32,
+    pub total_distance: i32,
+}
+
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct User {
     pub id: String,
