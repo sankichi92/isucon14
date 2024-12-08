@@ -1,6 +1,7 @@
 use axum::extract::State;
+use dashmap::DashMap;
 use isuride::{AppState, Error};
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
 
 #[tokio::main]
@@ -34,7 +35,11 @@ async fn main() -> anyhow::Result<()> {
         )
         .await?;
 
-    let app_state = AppState { pool };
+    let app_state = AppState {
+        pool,
+        ride_status_notify_by_chair_id: Arc::new(DashMap::new()),
+        ride_status_notify_by_user_id: Arc::new(DashMap::new()),
+    };
 
     let app = axum::Router::new()
         .route("/api/initialize", axum::routing::post(post_initialize))
