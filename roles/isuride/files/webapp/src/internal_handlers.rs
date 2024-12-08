@@ -24,25 +24,22 @@ async fn internal_get_matching(
         return Ok(StatusCode::NO_CONTENT);
     };
 
-    for _ in 0..10 {
-        let Some(matched): Option<Chair> =
-            sqlx::query_as("SELECT * FROM chairs WHERE is_active = TRUE ORDER BY RAND() LIMIT 1")
-                .fetch_optional(&pool)
-                .await?
-        else {
-            return Ok(StatusCode::NO_CONTENT);
-        };
+    let matched: Vec<Chair> =
+        sqlx::query_as("SELECT chairs.*, chair_models.speed FROM chairs INNER JOIN chair_models ON chairs.model = chair_models.name WHERE chairs.is_active = TRUE ORDER BY chair_models.speed DESC LIMIT 10")
+            .fetch_all(&pool)
+            .await?;
 
+    for m in matched {
         let empty: bool = sqlx::query_scalar(
             "SELECT COUNT(*) = 0 FROM (SELECT COUNT(chair_sent_at) = 6 AS completed FROM ride_statuses WHERE ride_id IN (SELECT id FROM rides WHERE chair_id = ?) GROUP BY ride_id) is_completed WHERE completed = FALSE",
         )
-        .bind(&matched.id)
+        .bind(&m.id)
         .fetch_one(&pool)
         .await?;
 
         if empty {
             sqlx::query("UPDATE rides SET chair_id = ? WHERE id = ?")
-                .bind(matched.id)
+                .bind(m.id)
                 .bind(ride.id)
                 .execute(&pool)
                 .await?;
