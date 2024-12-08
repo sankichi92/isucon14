@@ -1,5 +1,8 @@
 use axum::extract::State;
 use axum::http::StatusCode;
+use tokio::sync::watch;
+use tracing::info;
+use ulid::Ulid;
 
 use crate::models::{Chair, Ride};
 use crate::{AppState, Error};
@@ -13,7 +16,11 @@ pub fn internal_routes() -> axum::Router<AppState> {
 
 // このAPIをインスタンス内から一定間隔で叩かせることで、椅子とライドをマッチングさせる
 pub async fn internal_get_matching(
-    State(AppState { pool, .. }): State<AppState>,
+    State(AppState {
+        pool,
+        ride_status_notify_by_chair_id,
+        ride_status_notify_by_user_id,
+    }): State<AppState>,
 ) -> Result<StatusCode, Error> {
     // MEMO: 一旦最も待たせているリクエストに適当な空いている椅子マッチさせる実装とする。おそらくもっといい方法があるはず…
     let Some(ride): Option<Ride> =
@@ -39,10 +46,24 @@ pub async fn internal_get_matching(
 
         if empty {
             sqlx::query("UPDATE rides SET chair_id = ? WHERE id = ?")
-                .bind(m.id)
+                .bind(m.id.clone())
                 .bind(ride.id)
                 .execute(&pool)
                 .await?;
+
+            ride_status_notify_by_chair_id
+                .entry(m.id.clone())
+                .or_insert_with(|| watch::channel(Ulid::new()))
+                .0
+                .send(Ulid::new())
+                .unwrap();
+            info!(chair_id = m.id, "notify chair change");
+            ride_status_notify_by_user_id
+                .entry(ride.user_id.clone())
+                .or_insert_with(|| watch::channel(Ulid::new()))
+                .0
+                .send(Ulid::new())
+                .unwrap();
             break;
         }
     }

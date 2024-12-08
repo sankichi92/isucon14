@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_stream::stream;
@@ -6,6 +7,7 @@ use axum::http::StatusCode;
 use axum::response::sse::Event;
 use axum::response::Sse;
 use axum_extra::extract::CookieJar;
+use dashmap::DashMap;
 use futures::Stream;
 use sqlx::MySqlPool;
 use tokio::sync::watch;
@@ -607,6 +609,7 @@ struct AppGetNotificationResponseChairStats {
 
 fn poll_notification(
     mut user_notification: watch::Receiver<Ulid>,
+    chair_notify: Arc<DashMap<String, (watch::Sender<Ulid>, watch::Receiver<Ulid>)>>,
     pool: MySqlPool,
     user_id: String,
 ) -> impl Stream<Item = Result<Option<AppGetNotificationResponseData>, Error>> {
@@ -669,7 +672,7 @@ fn poll_notification(
                 updated_at: ride.updated_at.timestamp_millis(),
             };
 
-            if let Some(chair_id) = ride.chair_id {
+            if let Some(chair_id) = ride.chair_id.clone() {
                 let chair: Chair = sqlx::query_as("SELECT * FROM chairs WHERE id = ?")
                     .bind(chair_id)
                     .fetch_one(&mut *tx)
@@ -692,7 +695,19 @@ fn poll_notification(
                     .await?;
             }
 
+
+
             tx.commit().await?;
+
+            if let Some(chair_id) = ride.chair_id.clone() {
+                chair_notify
+                    .entry(chair_id.clone())
+                    .or_insert_with(|| watch::channel(Ulid::new()))
+                    .0
+                    .send(Ulid::new())
+                    .unwrap();
+                info!(chair_id, "notify chair change");
+            }
             info!(user_id, status=data.status, "send sse");
             yield Ok(Some(data));
             user_notification.changed().await.unwrap();
@@ -704,6 +719,7 @@ async fn app_get_notification(
     State(AppState {
         pool,
         ride_status_notify_by_user_id,
+        ride_status_notify_by_chair_id,
         ..
     }): State<AppState>,
     axum::Extension(user): axum::Extension<User>,
@@ -714,7 +730,12 @@ async fn app_get_notification(
         .1
         .clone();
 
-    let stream = poll_notification(user_notification, pool.clone(), user.id.clone());
+    let stream = poll_notification(
+        user_notification,
+        ride_status_notify_by_chair_id,
+        pool.clone(),
+        user.id.clone(),
+    );
     let stream = stream.map(|result| match result {
         Ok(data) => Ok(Event::default().json_data(&data).unwrap()),
         Err(e) => {
@@ -723,7 +744,7 @@ async fn app_get_notification(
         }
     });
     info!("return sse");
-    Sse::new(stream.throttle(Duration::from_millis(400)))
+    Sse::new(stream.throttle(Duration::from_millis(300)))
 }
 
 async fn get_chair_stats(

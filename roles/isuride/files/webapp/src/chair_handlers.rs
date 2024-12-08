@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_stream::stream;
@@ -7,6 +8,7 @@ use axum::response::sse::Event;
 use axum::response::Sse;
 use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
+use dashmap::DashMap;
 use futures::Stream;
 use sqlx::MySqlPool;
 use tokio::sync::watch;
@@ -253,6 +255,7 @@ struct ChairGetNotificationResponseData {
 
 fn chair_notification_stream(
     mut chair_notification: watch::Receiver<Ulid>,
+    user_notify: Arc<DashMap<String, (watch::Sender<Ulid>, watch::Receiver<Ulid>)>>,
     pool: MySqlPool,
     chair_id: String,
 ) -> impl Stream<Item = Result<Option<ChairGetNotificationResponseData>, Error>> {
@@ -288,7 +291,7 @@ fn chair_notification_stream(
             };
 
             let user: User = sqlx::query_as("SELECT * FROM users WHERE id = ? FOR SHARE")
-                .bind(ride.user_id)
+                .bind(ride.user_id.clone())
                 .fetch_one(&mut *tx)
                 .await?;
 
@@ -297,6 +300,13 @@ fn chair_notification_stream(
                     .bind(yet_sent_ride_status_id)
                     .execute(&mut *tx)
                     .await?;
+
+                user_notify
+                    .entry(ride.user_id.clone())
+                    .or_insert_with(|| watch::channel(Ulid::new()))
+                    .0
+                    .send(Ulid::new())
+                    .unwrap();
             }
 
             tx.commit().await?;
@@ -327,6 +337,7 @@ async fn chair_get_notification(
     State(AppState {
         pool,
         ride_status_notify_by_chair_id,
+        ride_status_notify_by_user_id,
         ..
     }): State<AppState>,
     axum::Extension(chair): axum::Extension<Chair>,
@@ -337,7 +348,12 @@ async fn chair_get_notification(
         .1
         .clone();
 
-    let stream = chair_notification_stream(chair_notification, pool, chair.id.clone());
+    let stream = chair_notification_stream(
+        chair_notification,
+        ride_status_notify_by_user_id,
+        pool,
+        chair.id.clone(),
+    );
     let stream = stream.map(|result| match result {
         Ok(data) => Ok(Event::default().json_data(&data).unwrap()),
         Err(e) => {
@@ -346,7 +362,7 @@ async fn chair_get_notification(
         }
     });
 
-    Sse::new(stream.throttle(Duration::from_millis(400)))
+    Sse::new(stream.throttle(Duration::from_millis(300)))
 }
 
 #[derive(Debug, serde::Deserialize)]
