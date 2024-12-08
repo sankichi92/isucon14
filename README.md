@@ -5,3 +5,5 @@
 ## スコア履歴
 
 ![](score_history.png)
+
+![](benchmark_history.png)
