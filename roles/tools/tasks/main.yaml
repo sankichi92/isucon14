@@ -28,7 +28,7 @@
 
 - name: Copy mysqldumpslow.sh
   ansible.builtin.copy:
-    src: isualp.sh
+    src: mysqldumpslow.sh
     dest: /usr/local/bin/mysqldumpslow.sh
     owner: root
     group: root
