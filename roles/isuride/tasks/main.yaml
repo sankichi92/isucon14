@@ -2,7 +2,7 @@
 - name: Copy app binary
   ansible.builtin.copy:
     src: webapp/target/x86_64-unknown-linux-gnu/release/isuride
-    dest: /usr/local/bin
+    dest: /usr/local/bin/isuride
     owner: root
     group: root
     mode: "0755"
