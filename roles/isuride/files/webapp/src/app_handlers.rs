@@ -511,24 +511,10 @@ async fn app_post_ride_evaluation(
             .fetch_one(&mut *tx)
             .await?;
 
-    async fn retrieve_rides_order_by_created_at_asc(
-        tx: &mut sqlx::MySqlConnection,
-        user_id: &str,
-    ) -> Result<Vec<Ride>, Error> {
-        sqlx::query_as("SELECT * FROM rides WHERE user_id = ? ORDER BY created_at ASC")
-            .bind(user_id)
-            .fetch_all(tx)
-            .await
-            .map_err(Error::Sqlx)
-    }
-
     crate::payment_gateway::request_payment_gateway_post_payment(
         &payment_gateway_url,
         &payment_token.token,
         &crate::payment_gateway::PaymentGatewayPostPaymentRequest { amount: fare },
-        &mut tx,
-        &ride.user_id,
-        retrieve_rides_order_by_created_at_asc,
     )
     .await?;
 
