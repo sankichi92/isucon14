@@ -1,7 +1,8 @@
 use axum::extract::State;
+use dashmap::DashMap;
 use isuride::{AppState, Error};
 use isuride::internal_handlers;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
@@ -37,7 +38,11 @@ async fn main() -> anyhow::Result<()> {
         )
         .await?;
 
-    let app_state = AppState { pool: Arc::new(pool) };
+    let app_state = AppState {
+        pool: Arc::new(pool)
+        ride_status_notify_by_chair_id: Arc::new(DashMap::new()),
+        ride_status_notify_by_user_id: Arc::new(DashMap::new()),
+    };
 
     // yet another isuride-matcher
     let pool = app_state.pool.clone();
