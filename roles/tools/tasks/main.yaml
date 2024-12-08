@@ -1,0 +1,18 @@
+---
+- name: Install dev tools
+  ansible.builtin.apt:
+    name:
+      - fish
+      - neovim
+      - sysstat
+
+- name: Install alp
+  ansible.builtin.get_url:
+    url: https://github.com/tkuchiki/alp/releases/download/v1.0.21/alp_linux_amd64.tar.gz
+    dest: /tmp/alp.tar.gz
+
+- name: Unarchive alp
+  ansible.builtin.unarchive:
+    src: /tmp/alp.tar.gz
+    dest: /usr/local/bin
+    remote_src: true
