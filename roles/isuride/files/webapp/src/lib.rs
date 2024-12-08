@@ -1,8 +1,9 @@
 use axum::{http::StatusCode, response::Response};
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
-    pub pool: sqlx::MySqlPool,
+    pub pool: Arc<sqlx::MySqlPool>,
 }
 
 #[derive(Debug, thiserror::Error)]

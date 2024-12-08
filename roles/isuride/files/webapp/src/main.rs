@@ -1,6 +1,9 @@
 use axum::extract::State;
 use isuride::{AppState, Error};
+use isuride::internal_handlers;
 use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::TcpListener;
 
 #[tokio::main]
@@ -34,14 +37,24 @@ async fn main() -> anyhow::Result<()> {
         )
         .await?;
 
-    let app_state = AppState { pool };
+    let app_state = AppState { pool: Arc::new(pool) };
+
+    // yet another isuride-matcher
+    let pool = app_state.pool.clone();
+    tokio::spawn(async move {
+        loop {
+            let state = AppState { pool: pool.clone() };
+            let _ = internal_handlers::internal_get_matching(axum::extract::State(state)).await;
+            let _ = tokio::time::sleep(Duration::from_millis(500));
+        }
+    });
 
     let app = axum::Router::new()
         .route("/api/initialize", axum::routing::post(post_initialize))
         .merge(isuride::app_handlers::app_routes(app_state.clone()))
         .merge(isuride::owner_handlers::owner_routes(app_state.clone()))
         .merge(isuride::chair_handlers::chair_routes(app_state.clone()))
-        .merge(isuride::internal_handlers::internal_routes())
+        //.merge(isuride::internal_handlers::internal_routes())
         .with_state(app_state)
         .layer(tower_http::trace::TraceLayer::new_for_http());
 
@@ -82,7 +95,7 @@ async fn post_initialize(
 
     sqlx::query("UPDATE settings SET value = ? WHERE name = 'payment_gateway_url'")
         .bind(req.payment_server)
-        .execute(&pool)
+        .execute(&*pool)
         .await?;
 
     Ok(axum::Json(PostInitializeResponse { language: "rust" }))

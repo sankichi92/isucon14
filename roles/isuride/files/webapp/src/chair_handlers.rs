@@ -57,7 +57,7 @@ async fn chair_post_chairs(
     let Some(owner): Option<Owner> =
         sqlx::query_as("SELECT * FROM owners WHERE chair_register_token = ?")
             .bind(req.chair_register_token)
-            .fetch_optional(&pool)
+            .fetch_optional(&*pool)
             .await?
     else {
         return Err(Error::Unauthorized("invalid chair_register_token"));
@@ -73,7 +73,7 @@ async fn chair_post_chairs(
         .bind(req.model)
         .bind(false)
         .bind(&access_token)
-        .execute(&pool)
+        .execute(&*pool)
         .await?;
 
     let jar = jar.add(Cookie::build(("chair_session", access_token)).path("/"));
@@ -103,7 +103,7 @@ async fn chair_post_activity(
     sqlx::query("UPDATE chairs SET is_active = ? WHERE id = ?")
         .bind(req.is_active)
         .bind(chair.id)
-        .execute(&pool)
+        .execute(&*pool)
         .await?;
 
     Ok(StatusCode::NO_CONTENT)
@@ -158,7 +158,7 @@ async fn chair_post_coordinate(
 
     let location: ChairLocation = sqlx::query_as("SELECT * FROM chair_locations WHERE id = ?")
         .bind(chair_location_id)
-        .fetch_one(&pool)
+        .fetch_one(&*pool)
         .await?;
 
     let mut tx = pool.begin().await?;

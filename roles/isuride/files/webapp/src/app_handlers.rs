@@ -157,7 +157,7 @@ async fn app_post_payment_methods(
     sqlx::query("INSERT INTO payment_tokens (user_id, token) VALUES (?, ?)")
         .bind(user.id)
         .bind(req.token)
-        .execute(&pool)
+        .execute(&*pool)
         .await?;
 
     Ok(StatusCode::NO_CONTENT)
