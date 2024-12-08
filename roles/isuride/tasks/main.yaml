@@ -58,6 +58,6 @@
 - name: Start isuride-matcher
   ansible.builtin.systemd_service:
     name: isuride-matcher.service
-    enabled: true
+    enabled: false
     daemon_reload: true
-    state: started
+    state: stopped
