@@ -1,16 +1,8 @@
-use std::sync::Arc;
-
 use axum::{http::StatusCode, response::Response};
-use dashmap::DashMap;
-use tokio::sync::watch;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub pool: sqlx::MySqlPool,
-    pub ride_status_notify_by_user_id:
-        Arc<DashMap<String, (watch::Sender<()>, watch::Receiver<()>)>>,
-    pub ride_status_notify_by_chair_id:
-        Arc<DashMap<String, (watch::Sender<()>, watch::Receiver<()>)>>,
 }
 
 #[derive(Debug, thiserror::Error)]

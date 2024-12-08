@@ -22,9 +22,7 @@ pub struct PaymentGatewayPostPaymentRequest {
 
 #[derive(Debug, serde::Deserialize)]
 struct PaymentGatewayGetPaymentsResponseOne {
-    #[allow(unused)]
     amount: i32,
-    #[allow(unused)]
     status: String,
 }
 
