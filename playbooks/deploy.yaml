@@ -2,7 +2,15 @@
 - name: Deploy
   hosts:
     - isu1
+    - isu3
   become: true
   roles:
     - nginx
     - isuride
+- name: Deploy mysql
+  hosts:
+    - isu2
+    - isu3
+  become: true
+  roles:
+    - mysql

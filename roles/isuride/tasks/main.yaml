@@ -18,7 +18,7 @@
   notify: Restart isuride
 
 - name: Copy env.sh
-  ansible.builtin.copy:
+  ansible.builtin.template:
     src: env.sh
     dest: /home/isucon/env.sh
     owner: isucon

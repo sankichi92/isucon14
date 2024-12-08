@@ -51,7 +51,7 @@ async fn owner_post_owners(
     .bind(req.name)
     .bind(&access_token)
     .bind(&chair_register_token)
-    .execute(&*pool)
+    .execute(&pool)
     .await?;
 
     let jar = jar.add(Cookie::build(("owner_session", access_token)).path("/"));
@@ -281,7 +281,7 @@ async fn owner_get_chairs(
     "#,
     )
     .bind(owner.id)
-    .fetch_all(&*pool)
+    .fetch_all(&pool)
     .await?;
 
     Ok(axum::Json(OwnerGetChairResponse {

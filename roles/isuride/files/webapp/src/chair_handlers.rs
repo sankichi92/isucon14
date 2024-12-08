@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::time::Duration;
 
 use async_stream::stream;
 use axum::extract::{Path, State};
@@ -7,9 +7,10 @@ use axum::response::sse::Event;
 use axum::response::Sse;
 use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use sqlx::MySqlPool;
 use tokio::sync::watch;
+use tokio_stream::StreamExt as _;
 use tracing::{info, warn};
 use ulid::Ulid;
 
@@ -66,7 +67,7 @@ async fn chair_post_chairs(
     let Some(owner): Option<Owner> =
         sqlx::query_as("SELECT * FROM owners WHERE chair_register_token = ?")
             .bind(req.chair_register_token)
-            .fetch_optional(&*pool)
+            .fetch_optional(&pool)
             .await?
     else {
         return Err(Error::Unauthorized("invalid chair_register_token"));
@@ -82,7 +83,7 @@ async fn chair_post_chairs(
         .bind(req.model)
         .bind(false)
         .bind(&access_token)
-        .execute(&*pool)
+        .execute(&pool)
         .await?;
 
     let jar = jar.add(Cookie::build(("chair_session", access_token)).path("/"));
@@ -112,7 +113,7 @@ async fn chair_post_activity(
     sqlx::query("UPDATE chairs SET is_active = ? WHERE id = ?")
         .bind(req.is_active)
         .bind(chair.id)
-        .execute(&*pool)
+        .execute(&pool)
         .await?;
 
     Ok(StatusCode::NO_CONTENT)
@@ -171,7 +172,7 @@ async fn chair_post_coordinate(
 
     let location: ChairLocation = sqlx::query_as("SELECT * FROM chair_locations WHERE id = ?")
         .bind(chair_location_id)
-        .fetch_one(&*pool)
+        .fetch_one(&pool)
         .await?;
 
     let mut tx = pool.begin().await?;
@@ -252,7 +253,7 @@ struct ChairGetNotificationResponseData {
 
 fn chair_notification_stream(
     mut chair_notification: watch::Receiver<Ulid>,
-    pool: Arc<MySqlPool>,
+    pool: MySqlPool,
     chair_id: String,
 ) -> impl Stream<Item = Result<Option<ChairGetNotificationResponseData>, Error>> {
     info!(chair_id, "open new notification channel for chair");
@@ -345,7 +346,7 @@ async fn chair_get_notification(
         }
     });
 
-    Sse::new(stream)
+    Sse::new(stream.throttle(Duration::from_millis(400)))
 }
 
 #[derive(Debug, serde::Deserialize)]

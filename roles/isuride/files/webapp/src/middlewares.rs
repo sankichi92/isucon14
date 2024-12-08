@@ -18,7 +18,7 @@ pub async fn app_auth_middleware(
     let access_token = c.value();
     let Some(user): Option<User> = sqlx::query_as("SELECT * FROM users WHERE access_token = ?")
         .bind(access_token)
-        .fetch_optional(&*pool)
+        .fetch_optional(&pool)
         .await?
     else {
         return Err(Error::Unauthorized("invalid access token"));
@@ -41,7 +41,7 @@ pub async fn owner_auth_middleware(
     let access_token = c.value();
     let Some(owner): Option<Owner> = sqlx::query_as("SELECT * FROM owners WHERE access_token = ?")
         .bind(access_token)
-        .fetch_optional(&*pool)
+        .fetch_optional(&pool)
         .await?
     else {
         return Err(Error::Unauthorized("invalid access token"));
@@ -64,7 +64,7 @@ pub async fn chair_auth_middleware(
     let access_token = c.value();
     let Some(chair): Option<Chair> = sqlx::query_as("SELECT * FROM chairs WHERE access_token = ?")
         .bind(access_token)
-        .fetch_optional(&*pool)
+        .fetch_optional(&pool)
         .await?
     else {
         return Err(Error::Unauthorized("invalid access token"));

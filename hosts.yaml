@@ -2,7 +2,10 @@ all:
   hosts:
     isu3:
       ansible_user: isucon
-    isu2:
-      ansible_user: isucon
+      db_ip: 192.168.0.13
+#    isu2:
+#      ansible_user: isucon
+#      db_ip: 192.168.0.12
     isu1:
       ansible_user: isucon
+      db_ip: 192.168.0.12

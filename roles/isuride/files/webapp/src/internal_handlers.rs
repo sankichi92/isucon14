@@ -18,7 +18,7 @@ pub async fn internal_get_matching(
     // MEMO: 一旦最も待たせているリクエストに適当な空いている椅子マッチさせる実装とする。おそらくもっといい方法があるはず…
     let Some(ride): Option<Ride> =
         sqlx::query_as("SELECT * FROM rides WHERE chair_id IS NULL ORDER BY created_at LIMIT 1")
-            .fetch_optional(&*pool)
+            .fetch_optional(&pool)
             .await?
     else {
         return Ok(StatusCode::NO_CONTENT);
@@ -26,7 +26,7 @@ pub async fn internal_get_matching(
 
     let matched: Vec<Chair> =
         sqlx::query_as("SELECT chairs.*, chair_models.speed FROM chairs INNER JOIN chair_models ON chairs.model = chair_models.name WHERE chairs.is_active = TRUE ORDER BY chair_models.speed DESC LIMIT 10")
-            .fetch_all(&*pool)
+            .fetch_all(&pool)
             .await?;
 
     for m in matched {
@@ -34,14 +34,14 @@ pub async fn internal_get_matching(
             "SELECT COUNT(*) = 0 FROM (SELECT COUNT(chair_sent_at) = 6 AS completed FROM ride_statuses WHERE ride_id IN (SELECT id FROM rides WHERE chair_id = ?) GROUP BY ride_id) is_completed WHERE completed = FALSE",
         )
         .bind(&m.id)
-        .fetch_one(&*pool)
+        .fetch_one(&pool)
         .await?;
 
         if empty {
             sqlx::query("UPDATE rides SET chair_id = ? WHERE id = ?")
                 .bind(m.id)
                 .bind(ride.id)
-                .execute(&*pool)
+                .execute(&pool)
                 .await?;
             break;
         }

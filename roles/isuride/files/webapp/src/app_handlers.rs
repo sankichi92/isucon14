@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::time::Duration;
 
 use async_stream::stream;
 use axum::extract::{Path, Query, State};
@@ -167,7 +167,7 @@ async fn app_post_payment_methods(
     sqlx::query("INSERT INTO payment_tokens (user_id, token) VALUES (?, ?)")
         .bind(user.id)
         .bind(req.token)
-        .execute(&*pool)
+        .execute(&pool)
         .await?;
 
     Ok(StatusCode::NO_CONTENT)
@@ -607,7 +607,7 @@ struct AppGetNotificationResponseChairStats {
 
 fn poll_notification(
     mut user_notification: watch::Receiver<Ulid>,
-    pool: Arc<MySqlPool>,
+    pool: MySqlPool,
     user_id: String,
 ) -> impl Stream<Item = Result<Option<AppGetNotificationResponseData>, Error>> {
     info!(user_id, "open user notification channel");
@@ -714,7 +714,7 @@ async fn app_get_notification(
         .1
         .clone();
 
-    let stream = poll_notification(user_notification, pool, user.id.clone());
+    let stream = poll_notification(user_notification, pool.clone(), user.id.clone());
     let stream = stream.map(|result| match result {
         Ok(data) => Ok(Event::default().json_data(&data).unwrap()),
         Err(e) => {
@@ -723,7 +723,7 @@ async fn app_get_notification(
         }
     });
     info!("return sse");
-    Sse::new(stream)
+    Sse::new(stream.throttle(Duration::from_millis(400)))
 }
 
 async fn get_chair_stats(

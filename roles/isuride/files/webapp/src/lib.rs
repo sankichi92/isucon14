@@ -7,7 +7,7 @@ use ulid::Ulid;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
-    pub pool: Arc<sqlx::MySqlPool>,
+    pub pool: sqlx::MySqlPool,
     pub ride_status_notify_by_user_id:
         Arc<DashMap<String, (watch::Sender<Ulid>, watch::Receiver<Ulid>)>>,
     pub ride_status_notify_by_chair_id:

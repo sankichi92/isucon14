@@ -42,7 +42,7 @@ async fn main() -> anyhow::Result<()> {
     let ride_status_notify_by_user_id = Arc::new(DashMap::new());
 
     let app_state = AppState {
-        pool: Arc::new(pool),
+        pool: pool,
         ride_status_notify_by_chair_id: ride_status_notify_by_chair_id.clone(),
         ride_status_notify_by_user_id: ride_status_notify_by_user_id.clone(),
     };
@@ -107,7 +107,7 @@ async fn post_initialize(
 
     sqlx::query("UPDATE settings SET value = ? WHERE name = 'payment_gateway_url'")
         .bind(req.payment_server)
-        .execute(&*pool)
+        .execute(&pool)
         .await?;
 
     Ok(axum::Json(PostInitializeResponse { language: "rust" }))
