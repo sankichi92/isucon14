@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+#[profile.release]
+#panic = "abort"
+#lto = "fat"
+#codegen-units = 1
+
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
 axum = "0.7"
