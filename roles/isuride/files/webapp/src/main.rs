@@ -9,7 +9,7 @@ use tokio::net::TcpListener;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "info,tower_http=debug,axum::rejection=trace");
+        std::env::set_var("RUST_LOG", "error");
     }
     tracing_subscriber::fmt::init();
 
