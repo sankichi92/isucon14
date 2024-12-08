@@ -6,18 +6,10 @@ DISCORD_WEBHOOK="https://discord.com/api/webhooks/1314864227587981312/qv5PjNAh5x
 
 sudo cat /var/log/nginx/access.log | alp ltsv -m \
 "\
-/api/user/[^/]+/icon,\
-/api/user/[^/]+/theme,\
-/api/user/[^/]+/statistics,\
-/api/livestream/[0-9]+\$,\
-/api/livestream/[0-9]+/statistics,\
-/api/livestream/[0-9]+/livecomment,\
-/api/livestream/[0-9]+/reaction,\
-/api/livestream/[0-9]+/report,\
-/api/livestream/[0-9]+/ngwords,\
-/api/livestream/[0-9]+/exit,\
-/api/livestream/[0-9]+/moderate,\
-/api/livestream/[0-9]+/enter\
+/assets/.+\$\
+,/images/.+\$\
+,/api/chair/rides/[^/]+/status\$\
+,/api/app/rides/[^/]+/evaluation\$\
 " \
 --sort sum > /tmp/alp.txt
 cat /tmp/alp.txt
