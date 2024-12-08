@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::sync::Arc;
 
 use async_stream::stream;
 use axum::extract::{Path, Query, State};
@@ -6,9 +6,11 @@ use axum::http::StatusCode;
 use axum::response::sse::Event;
 use axum::response::Sse;
 use axum_extra::extract::CookieJar;
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use sqlx::MySqlPool;
 use tokio::sync::watch;
+use tokio_stream::StreamExt as _;
+use tracing::{info, warn};
 use ulid::Ulid;
 
 use crate::models::{Chair, ChairLocation, Coupon, Owner, PaymentToken, Ride, RideStatus, User};
@@ -391,19 +393,21 @@ async fn app_post_rides(
 
     if let Some(chair_id) = ride.chair_id {
         ride_status_notify_by_chair_id
-            .entry(chair_id)
-            .or_insert_with(|| watch::channel(()))
+            .entry(chair_id.clone())
+            .or_insert_with(|| watch::channel(Ulid::new()))
             .0
-            .send(())
+            .send(Ulid::new())
             .unwrap();
+        info!(chair_id, "notify chair change");
     }
     ride_status_notify_by_user_id
-        .entry(ride.user_id)
-        .or_insert_with(|| watch::channel(()))
+        .entry(ride.user_id.clone())
+        .or_insert_with(|| watch::channel(Ulid::new()))
         .0
-        .send(())
+        .send(Ulid::new())
         .unwrap();
 
+    info!(user_id = ride.user_id, "notify user change");
     Ok((
         StatusCode::ACCEPTED,
         axum::Json(AppPostRidesResponse { ride_id, fare }),
@@ -554,18 +558,20 @@ async fn app_post_ride_evaluation(
 
     if let Some(chair_id) = ride.chair_id {
         ride_status_notify_by_chair_id
-            .entry(chair_id)
-            .or_insert_with(|| watch::channel(()))
+            .entry(chair_id.clone())
+            .or_insert_with(|| watch::channel(Ulid::new()))
             .0
-            .send(())
+            .send(Ulid::new())
             .unwrap();
+        info!(chair_id, "notify chair change");
     }
     ride_status_notify_by_user_id
-        .entry(ride.user_id)
-        .or_insert_with(|| watch::channel(()))
+        .entry(ride.user_id.clone())
+        .or_insert_with(|| watch::channel(Ulid::new()))
         .0
-        .send(())
+        .send(Ulid::new())
         .unwrap();
+    info!(user_id = ride.user_id, "notify user change");
     Ok(axum::Json(AppPostRideEvaluationResponse {
         fare,
         completed_at: ride.updated_at.timestamp_millis(),
@@ -600,10 +606,11 @@ struct AppGetNotificationResponseChairStats {
 }
 
 fn poll_notification(
-    mut user_notification: watch::Receiver<()>,
-    pool: MySqlPool,
+    mut user_notification: watch::Receiver<Ulid>,
+    pool: Arc<MySqlPool>,
     user_id: String,
-) -> impl Stream<Item = Result<AppGetNotificationResponseData, Error>> {
+) -> impl Stream<Item = Result<Option<AppGetNotificationResponseData>, Error>> {
+    info!(user_id, "open user notification channel");
     stream! {
         loop {
             let mut tx = pool.begin().await?;
@@ -615,9 +622,12 @@ fn poll_notification(
             .fetch_optional(&mut *tx)
             .await?
             else {
+                info!(user_id, "no ride found");
                 tx.commit().await?;
+                yield Ok(None);
                 // 次の更新が来るまで待機
-                user_notification.changed().await.unwrap();
+                user_notification.changed() .await.unwrap();
+                info!(user_id, "got new ride");
                 continue;
             };
 
@@ -628,10 +638,7 @@ fn poll_notification(
             let (ride_status_id, status) = if let Some(yet_sent_ride_status) = yet_sent_ride_status {
                 (Some(yet_sent_ride_status.id), yet_sent_ride_status.status)
             } else {
-                tx.commit().await?;
-                // 次の更新が来るまで待機
-                user_notification.changed().await.unwrap();
-                continue;
+                (None, crate::get_latest_ride_status(&mut *tx, &ride.id).await?,)
             };
 
             let fare = calculate_discounted_fare(
@@ -685,9 +692,10 @@ fn poll_notification(
                     .await?;
             }
 
-            yield Ok(data);
-
             tx.commit().await?;
+            info!(user_id, status=data.status, "send sse");
+            yield Ok(Some(data));
+            user_notification.changed().await.unwrap();
         }
     }
 }
@@ -702,20 +710,20 @@ async fn app_get_notification(
 ) -> Sse<impl Stream<Item = Result<Event, Error>>> {
     let user_notification = ride_status_notify_by_user_id
         .entry(user.id.clone())
-        .or_insert_with(|| watch::channel(()))
+        .or_insert_with(|| watch::channel(Ulid::new()))
         .1
         .clone();
 
     let stream = poll_notification(user_notification, pool, user.id.clone());
-    let stream = stream.map(|result| {
-        Ok(Event::default().data(format!("{}\n", serde_json::to_string(&result?).unwrap())))
+    let stream = stream.map(|result| match result {
+        Ok(data) => Ok(Event::default().json_data(&data).unwrap()),
+        Err(e) => {
+            warn!(e = e.to_string(), "error happend");
+            Err(e)
+        }
     });
-
-    Sse::new(stream).keep_alive(
-        axum::response::sse::KeepAlive::new()
-            .interval(Duration::from_secs(1))
-            .text("keep-alive-text"),
-    )
+    info!("return sse");
+    Sse::new(stream)
 }
 
 async fn get_chair_stats(

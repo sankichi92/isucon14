@@ -1,8 +1,8 @@
 use axum::extract::State;
 use dashmap::DashMap;
-use isuride::{AppState, Error};
 use isuride::internal_handlers;
-use std::{net::SocketAddr, sync::Arc};
+use isuride::{AppState, Error};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
@@ -38,19 +38,26 @@ async fn main() -> anyhow::Result<()> {
         )
         .await?;
 
+    let ride_status_notify_by_chair_id = Arc::new(DashMap::new());
+    let ride_status_notify_by_user_id = Arc::new(DashMap::new());
+
     let app_state = AppState {
-        pool: Arc::new(pool)
-        ride_status_notify_by_chair_id: Arc::new(DashMap::new()),
-        ride_status_notify_by_user_id: Arc::new(DashMap::new()),
+        pool: Arc::new(pool),
+        ride_status_notify_by_chair_id: ride_status_notify_by_chair_id.clone(),
+        ride_status_notify_by_user_id: ride_status_notify_by_user_id.clone(),
     };
 
     // yet another isuride-matcher
     let pool = app_state.pool.clone();
     tokio::spawn(async move {
         loop {
-            let state = AppState { pool: pool.clone() };
+            let state = AppState {
+                pool: pool.clone(),
+                ride_status_notify_by_chair_id: ride_status_notify_by_chair_id.clone(),
+                ride_status_notify_by_user_id: ride_status_notify_by_user_id.clone(),
+            };
             let _ = internal_handlers::internal_get_matching(axum::extract::State(state)).await;
-            let _ = tokio::time::sleep(Duration::from_millis(500));
+            let _ = tokio::time::sleep(Duration::from_millis(200));
         }
     });
 

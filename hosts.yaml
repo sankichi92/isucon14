@@ -1,6 +1,8 @@
 all:
   hosts:
-    isu1:
+    isu3:
       ansible_user: isucon
     isu2:
+      ansible_user: isucon
+    isu1:
       ansible_user: isucon

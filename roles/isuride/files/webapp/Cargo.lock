@@ -1135,6 +1135,7 @@ dependencies = [
  "sqlx",
  "thiserror 2.0.4",
  "tokio",
+ "tokio-stream",
  "tower-http",
  "tracing",
  "tracing-subscriber",

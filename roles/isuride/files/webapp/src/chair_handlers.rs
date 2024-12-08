@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::sync::Arc;
 
 use async_stream::stream;
 use axum::extract::{Path, State};
@@ -10,6 +10,7 @@ use axum_extra::extract::CookieJar;
 use futures::{Stream, StreamExt};
 use sqlx::MySqlPool;
 use tokio::sync::watch;
+use tracing::{info, warn};
 use ulid::Ulid;
 
 use crate::models::{Chair, ChairLocation, Owner, Ride, RideStatus, User};
@@ -213,18 +214,20 @@ async fn chair_post_coordinate(
 
     ride_status_notify_by_chair_id
         .entry(chair.id.clone())
-        .or_insert_with(|| watch::channel(()))
+        .or_insert_with(|| watch::channel(Ulid::new()))
         .0
-        .send(())
+        .send(Ulid::new())
         .unwrap();
+    info!(chair_id = chair.id, "notify chair change");
 
     if let Some(ride) = &ride {
         ride_status_notify_by_user_id
             .entry(ride.user_id.clone())
-            .or_insert_with(|| watch::channel(()))
+            .or_insert_with(|| watch::channel(Ulid::new()))
             .0
-            .send(())
+            .send(Ulid::new())
             .unwrap();
+        info!(user_id = ride.user_id, "notify user change");
     }
 
     Ok(axum::Json(ChairPostCoordinateResponse {
@@ -248,10 +251,11 @@ struct ChairGetNotificationResponseData {
 }
 
 fn chair_notification_stream(
-    mut chair_notification: watch::Receiver<()>,
-    pool: MySqlPool,
+    mut chair_notification: watch::Receiver<Ulid>,
+    pool: Arc<MySqlPool>,
     chair_id: String,
-) -> impl Stream<Item = Result<ChairGetNotificationResponseData, Error>> {
+) -> impl Stream<Item = Result<Option<ChairGetNotificationResponseData>, Error>> {
+    info!(chair_id, "open new notification channel for chair");
     stream! {
         loop {
             let mut tx = pool.begin().await?;
@@ -263,7 +267,10 @@ fn chair_notification_stream(
                     .await?
             else {
                 tx.commit().await?;
+                info!(chair_id, "no ride found");
+                yield Ok(None);
                 chair_notification.changed().await.unwrap();
+                info!(chair_id, "got new ride");
                 continue;
             };
 
@@ -276,9 +283,7 @@ fn chair_notification_stream(
             {
                 (Some(yet_sent_ride_status.id), yet_sent_ride_status.status)
             } else {
-                tx.commit().await?;
-                chair_notification.changed().await.unwrap();
-                continue;
+                (None, crate::get_latest_ride_status(&mut *tx, &ride.id).await?,)
             };
 
             let user: User = sqlx::query_as("SELECT * FROM users WHERE id = ? FOR SHARE")
@@ -294,8 +299,9 @@ fn chair_notification_stream(
             }
 
             tx.commit().await?;
+            info!(chair_id, status, "send sse");
 
-            yield Ok(ChairGetNotificationResponseData {
+            yield Ok(Some(ChairGetNotificationResponseData {
                 ride_id: ride.id,
                 user: SimpleUser {
                     id: user.id,
@@ -310,7 +316,8 @@ fn chair_notification_stream(
                     longitude: ride.destination_longitude,
                 },
                 status,
-            })
+            }));
+            chair_notification.changed().await.unwrap();
         }
     }
 }
@@ -325,20 +332,20 @@ async fn chair_get_notification(
 ) -> Sse<impl Stream<Item = Result<Event, Error>>> {
     let chair_notification = ride_status_notify_by_chair_id
         .entry(chair.id.clone())
-        .or_insert_with(|| watch::channel(()))
+        .or_insert_with(|| watch::channel(Ulid::new()))
         .1
         .clone();
 
     let stream = chair_notification_stream(chair_notification, pool, chair.id.clone());
-    let stream = stream.map(|result| {
-        Ok(Event::default().data(format!("{}\n", serde_json::to_string(&result?).unwrap())))
+    let stream = stream.map(|result| match result {
+        Ok(data) => Ok(Event::default().json_data(&data).unwrap()),
+        Err(e) => {
+            warn!(e = e.to_string(), "error happend");
+            Err(e)
+        }
     });
 
-    Sse::new(stream).keep_alive(
-        axum::response::sse::KeepAlive::new()
-            .interval(Duration::from_secs(1))
-            .text("keep-alive-text"),
-    )
+    Sse::new(stream)
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -402,17 +409,19 @@ async fn chair_post_ride_status(
 
     ride_status_notify_by_chair_id
         .entry(chair.id.clone())
-        .or_insert_with(|| watch::channel(()))
+        .or_insert_with(|| watch::channel(Ulid::new()))
         .0
-        .send(())
+        .send(Ulid::new())
         .unwrap();
+    info!(chair_id = chair.id, "notify chair change");
 
     ride_status_notify_by_user_id
         .entry(ride.user_id.clone())
-        .or_insert_with(|| watch::channel(()))
+        .or_insert_with(|| watch::channel(Ulid::new()))
         .0
-        .send(())
+        .send(Ulid::new())
         .unwrap();
+    info!(user_id = ride.user_id, "notify chair change");
 
     Ok(StatusCode::NO_CONTENT)
 }
