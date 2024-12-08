@@ -5,6 +5,7 @@
       - fish
       - neovim
       - sysstat
+      - btop
 
 - name: Install alp
   ansible.builtin.get_url:
