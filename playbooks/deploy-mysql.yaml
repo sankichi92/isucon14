@@ -1,8 +1,7 @@
 ---
 - name: Deploy
   hosts:
-    - isu1
+    - isu2
   become: true
   roles:
-    - nginx
-    - isuride
+    - mysql
