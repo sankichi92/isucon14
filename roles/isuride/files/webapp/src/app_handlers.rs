@@ -719,7 +719,6 @@ async fn app_get_notification(
     }): State<AppState>,
     axum::Extension(user): axum::Extension<User>,
 ) -> Sse<impl Stream<Item = Result<Event, Error>>> {
-    info!(user_id = user.id, "handle app notification");
     let user_notification = ride_status_notify_by_user_id
         .entry(user.id.clone())
         .or_insert_with(|| watch::channel(()))
