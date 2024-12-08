@@ -26,7 +26,7 @@ async fn internal_get_matching(
 
     for _ in 0..10 {
         let Some(matched): Option<Chair> =
-            sqlx::query_as("SELECT * FROM chairs INNER JOIN (SELECT id FROM chairs WHERE is_active = TRUE ORDER BY RAND() LIMIT 1) AS tmp ON chairs.id = tmp.id LIMIT 1")
+            sqlx::query_as("SELECT * FROM chairs WHERE is_active = TRUE ORDER BY RAND() LIMIT 1")
                 .fetch_optional(&pool)
                 .await?
         else {
