@@ -120,15 +120,41 @@ async fn chair_post_coordinate(
     axum::Json(req): axum::Json<Coordinate>,
 ) -> Result<axum::Json<ChairPostCoordinateResponse>, Error> {
     let chair_location_id = Ulid::new().to_string();
+
+    let mut tx = pool.begin().await?;
+
+    let last_chair_location: Option<ChairLocation> = sqlx::query_as(
+        "SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(&chair.id)
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    let total_distance = if let Some(last_location) = last_chair_location {
+        last_location.total_distance
+            + (req.latitude - last_location.latitude).abs()
+            + (req.longitude - last_location.longitude).abs()
+    } else {
+        0
+    };
+
     sqlx::query(
-        "INSERT INTO chair_locations (id, chair_id, latitude, longitude) VALUES (?, ?, ?, ?)",
+        r#"
+        INSERT INTO
+            chair_locations (id, chair_id, latitude, longitude, total_distance)
+        VALUES
+            (?, ?, ?, ?, ?)
+        "#,
     )
     .bind(&chair_location_id)
     .bind(&chair.id)
     .bind(req.latitude)
     .bind(req.longitude)
-    .execute(&pool)
+    .bind(total_distance)
+    .execute(&mut *tx)
     .await?;
+
+    tx.commit().await?;
 
     let location: ChairLocation = sqlx::query_as("SELECT * FROM chair_locations WHERE id = ?")
         .bind(chair_location_id)

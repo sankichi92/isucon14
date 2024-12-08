@@ -19,6 +19,7 @@ pub struct ChairLocation {
     pub latitude: i32,
     pub longitude: i32,
     pub created_at: DateTime<Utc>,
+    pub total_distance: i32,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]

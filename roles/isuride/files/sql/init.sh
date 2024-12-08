@@ -30,11 +30,17 @@ mysql -u"$ISUCON_DB_USER" \
 		--port "$ISUCON_DB_PORT" \
 		"$ISUCON_DB_NAME" < 2-master-data.sql
 
-gzip -dkc 3-initial-data.sql.gz | mysql -u"$ISUCON_DB_USER" \
+mysql -u"$ISUCON_DB_USER" \
 		-p"$ISUCON_DB_PASSWORD" \
 		--host "$ISUCON_DB_HOST" \
 		--port "$ISUCON_DB_PORT" \
-		"$ISUCON_DB_NAME"
+		"$ISUCON_DB_NAME" < 3-initial-data.sql
+
+mysql -u"$ISUCON_DB_USER" \
+		-p"$ISUCON_DB_PASSWORD" \
+		--host "$ISUCON_DB_HOST" \
+		--port "$ISUCON_DB_PORT" \
+		"$ISUCON_DB_NAME" < 4-post-init.sql
 
 if [ -e /var/log/mysql/slow.log ]; then
 	sudo truncate -s 0 /var/log/mysql/slow.log
