@@ -9,7 +9,6 @@ use axum_extra::extract::CookieJar;
 use futures::{Stream, StreamExt};
 use sqlx::MySqlPool;
 use tokio::sync::watch;
-use tracing::info;
 use ulid::Ulid;
 
 use crate::models::{Chair, ChairLocation, Coupon, Owner, PaymentToken, Ride, RideStatus, User};
@@ -614,12 +613,11 @@ struct AppGetNotificationResponseChairStats {
     total_evaluation_avg: f64,
 }
 
-fn app_notification_stream(
+fn poll_notification(
     mut user_notification: watch::Receiver<()>,
     pool: MySqlPool,
     user_id: String,
 ) -> impl Stream<Item = Result<AppGetNotificationResponseData, Error>> {
-    info!(user_id, "notification channel established");
     stream! {
         loop {
             let mut tx = pool.begin().await?;
@@ -701,12 +699,9 @@ fn app_notification_stream(
                     .await?;
             }
 
-
-            tx.commit().await?;
-
-            info!(user_id, "notification sent by sse");
             yield Ok(data);
 
+            tx.commit().await?;
         }
     }
 }
@@ -725,7 +720,7 @@ async fn app_get_notification(
         .1
         .clone();
 
-    let stream = app_notification_stream(user_notification, pool, user.id.clone());
+    let stream = poll_notification(user_notification, pool, user.id.clone());
     let stream = stream.map(|result| {
         Ok(Event::default().data(format!("{}\n", serde_json::to_string(&result?).unwrap())))
     });

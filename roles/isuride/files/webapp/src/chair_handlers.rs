@@ -10,7 +10,6 @@ use axum_extra::extract::CookieJar;
 use futures::{Stream, StreamExt};
 use sqlx::MySqlPool;
 use tokio::sync::watch;
-use tracing::info;
 use ulid::Ulid;
 
 use crate::models::{Chair, ChairLocation, Owner, Ride, RideStatus, User};
@@ -227,7 +226,6 @@ fn chair_notification_stream(
     pool: MySqlPool,
     chair_id: String,
 ) -> impl Stream<Item = Result<ChairGetNotificationResponseData, Error>> {
-    info!(chair_id, "notification channel established");
     stream! {
         loop {
             let mut tx = pool.begin().await?;
@@ -271,7 +269,6 @@ fn chair_notification_stream(
 
             tx.commit().await?;
 
-            info!(chair_id, "notification sent by sse");
             yield Ok(ChairGetNotificationResponseData {
                 ride_id: ride.id,
                 user: SimpleUser {
