@@ -2,7 +2,3 @@ all:
   hosts:
     isu1:
       ansible_user: isucon
-    isu2:
-      ansible_user: isucon
-    isu3:
-      ansible_user: isucon

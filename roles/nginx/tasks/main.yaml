@@ -1,0 +1,13 @@
+---
+- name: Copy nginx conf
+  ansible.builtin.copy:
+    src: nginx
+    dest: /etc
+  notify: Restart nginx
+
+- name: Enable nginx service
+  ansible.builtin.systemd_service:
+    name: nginx
+    daemon_reload: true
+    state: started
+    enabled: true

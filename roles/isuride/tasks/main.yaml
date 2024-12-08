@@ -1,0 +1,46 @@
+---
+- name: Copy app binary
+  ansible.builtin.copy:
+    src: webapp/target/x86_64-unknown-linux-gnu/release/isuride
+    dest: /usr/local/bin
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart isuride
+
+- name: Copy systemd unit file
+  ansible.builtin.copy:
+    src: isuride-rust.service
+    dest: /etc/systemd/system/isuride-rust.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart isuride
+
+- name: Copy env.sh
+  ansible.builtin.copy:
+    src: env.sh
+    dest: /home/isucon/env.sh
+    owner: isucon
+    group: isucon
+    mode: "0644"
+  notify: Restart isuride
+
+- name: Stop isuride-go
+  ansible.builtin.systemd_service:
+    name: isuride-go.service
+    enabled: false
+    daemon_reload: true
+    state: stopped
+
+- name: Start isuride
+  ansible.builtin.systemd_service:
+    name: isuride-rust.service
+    enabled: true
+    daemon_reload: true
+    state: started
+
+- name: Copy sql
+  ansible.builtin.copy:
+    src: sql
+    dest: /home/isucon/webapp

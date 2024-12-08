@@ -1,0 +1,13 @@
+---
+- name: Copy mysql conf
+  ansible.builtin.copy:
+    src: mysql
+    dest: /etc
+  notify: Restart mysql
+
+- name: Enable mysql service
+  ansible.builtin.systemd_service:
+    name: mysql
+    daemon_reload: true
+    state: started
+    enabled: true
