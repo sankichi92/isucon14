@@ -306,6 +306,7 @@ async fn chair_get_notification(
     }): State<AppState>,
     axum::Extension(chair): axum::Extension<Chair>,
 ) -> Sse<impl Stream<Item = Result<Event, Error>>> {
+    info!(chair_id = chair.id, "handle app notification");
     let chair_notification = ride_status_notify_by_chair_id
         .entry(chair.id.clone())
         .or_insert_with(|| watch::channel(()))
