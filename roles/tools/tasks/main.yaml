@@ -17,3 +17,17 @@
     src: /tmp/alp.tar.gz
     dest: /usr/local/bin
     remote_src: true
+
+- name: Copy isualp.sh
+  src: isualp.sh
+  dest: /usr/local/bin/isualp.sh
+  owner: root
+  group: root
+  mode: "0755"
+
+- name: Copy mysqldumpslow.sh
+  src: isualp.sh
+  dest: /usr/local/bin/mysqldumpslow.sh
+  owner: root
+  group: root
+  mode: "0755"

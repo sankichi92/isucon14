@@ -35,3 +35,10 @@ gzip -dkc 3-initial-data.sql.gz | mysql -u"$ISUCON_DB_USER" \
 		--host "$ISUCON_DB_HOST" \
 		--port "$ISUCON_DB_PORT" \
 		"$ISUCON_DB_NAME"
+
+if [ -e /var/log/mysql/slow.log ]; then
+	sudo truncate -s 0 /var/log/mysql/slow.log
+fi
+if [ -e /var/log/nginx/access.log ]; then
+	sudo truncate -s 0 /var/log/nginx/access.log
+fi
